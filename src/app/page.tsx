@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import { Canvas } from "@/components/hero/canvas";
 import React from "react";
 

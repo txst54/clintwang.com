@@ -1,41 +1,6 @@
 import { Mat4, Mat3, Vec3 } from "../TSM.ts";
 import { Quat } from "../tsm/Quat.ts";
 
-export class RayCamera {
-  public position: Vec3;
-  public look: Vec3;
-  public aspect: number;
-  public rotationMatrix: Mat3;
-  private normalizedHeight: number;
-  private u: Vec3;
-  private v: Vec3;
-
-  constructor(position?: Vec3, look?: Vec3) {
-    if (!position) { position = new Vec3(); }
-    if (!look) { look = new Vec3(); }
-    this.position = position;
-    let fov = 45 / (180 / Math.PI);
-    this.normalizedHeight = 2 * Math.tan(fov / 2);
-    this.aspect = 800 / 600;
-
-    let zDir = look;
-    let yDir = new Vec3([0, 1, 0]);
-    let xDir = Vec3.cross(yDir, zDir);
-    this.rotationMatrix = new Mat3((xDir.xyz as number[]).concat(yDir.xyz as number[]).concat(zDir.xyz));
-    this.u = this.rotationMatrix.multiplyVec3(new Vec3([this.normalizedHeight*this.aspect, 0, 0]));
-    this.v = this.rotationMatrix.multiplyVec3(new Vec3([0, this.normalizedHeight, 0]), this.v);
-    this.look = this.rotationMatrix.multiplyVec3(new Vec3([0, 0, -1]));
-
-  }
-
-  /* public rayThrough(x: number, y: number): Ray {
-     x -= .5;
-     y -= .5;
-     let dir = Vec3.sum(this.look, Vec3.sum(this.u.copy().scale(x), this.v.copy().scale(y)));
-     return new Ray(this.position, dir.normalize());
-   }*/
-}
-
 // Camera - defines a camera to be used in an OpenGL app
 export class Camera {
   // View Matrix parameters

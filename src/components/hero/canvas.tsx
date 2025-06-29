@@ -41,7 +41,7 @@ export function Canvas() {
     // gl.clear(gl.COLOR_BUFFER_BIT);
 
     // You can now create shaders, buffers, etc...
-  }, []);
+  }, [pathTracer]);
 
   return (
     <canvas

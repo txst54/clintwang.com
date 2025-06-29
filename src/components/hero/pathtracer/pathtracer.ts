@@ -26,22 +26,22 @@ export class PathTracer extends CanvasAnimation {
   private static readonly MOVEMENT_SPEED = 0.1;
 
   // Core components
-  private gui: GUI;
-  private canvas2d: HTMLCanvasElement;
-  private fpsCounter: FPSCounter;
+  private gui!: GUI;
+  private canvas2d!: HTMLCanvasElement;
+  private fpsCounter!: FPSCounter;
 
   // Rendering state
   private currentMode = RenderMode.MIS;
   private sampleCount = 0;
-  private playerPosition: Vec3;
-  private cachedCameraRays: CameraRays;
-  private mouseCoords: Vec2;
+  private playerPosition!: Vec3;
+  private cachedCameraRays!: CameraRays;
+  private mouseCoords!: Vec2;
 
   // Timing
   private startTime = new Date();
 
   // Renderers
-  private renderers: { [key in RenderMode]: BaseRenderer };
+  private renderers!: { [key in RenderMode]: BaseRenderer };
 
   // Scene properties
   private lightPosition = new Vec4([-1000, 1000, -1000, 1]);

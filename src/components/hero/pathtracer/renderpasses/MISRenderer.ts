@@ -13,8 +13,6 @@ import {
 export default class MISRenderer extends BaseRenderer {
     private taa_c_read_idx: number = 2;
     private pt_frameBuffer: WebGLFramebuffer = this.gl.createFramebuffer();
-    private dn_frameBuffer: WebGLFramebuffer;
-    private taa_frameBuffer: WebGLFramebuffer;
 
     protected initialize(pathTracer: PathTracer): void {
         const type = this.gl.getExtension('OES_texture_float') ? this.gl.FLOAT : this.gl.UNSIGNED_BYTE;
@@ -46,11 +44,11 @@ export default class MISRenderer extends BaseRenderer {
     private setupDrawPass(pathTracer: PathTracer): void {
         const taa_c_write_idx = this.taa_c_read_idx === 2 ? 3 : 2;
         const numIndices = this.setupRayRenderPass(this.renderPasses.drawPass, pathTracer);
-        if ("textures" in this.textureConfig) {
+        if (this.textureConfig && "textures" in this.textureConfig) {
             let textures = [this.textureConfig.textures[0]];
             this.renderPasses.drawPass.addUniform(`uTexture`, (gl, loc) => {
                 gl.activeTexture(gl.TEXTURE0);
-                if ("textures" in this.textureConfig) {
+                if (this.textureConfig && "textures" in this.textureConfig) {
                     gl.bindTexture(gl.TEXTURE_2D, textures[0]);
                 }
                 gl.uniform1i(loc, 0);
@@ -62,12 +60,12 @@ export default class MISRenderer extends BaseRenderer {
 
     private setupDenoiserPass(pathTracer: PathTracer): void {
         const numIndices = this.setupRayRenderPass(this.renderPasses.denoiser, pathTracer);
-        if ("textures" in this.textureConfig) {
+        if (this.textureConfig && "textures" in this.textureConfig) {
             let textures = [this.textureConfig.textures[0], this.textureConfig.textures[1]];
             for (let i = 0; !(this.textureConfig) || i < this.textureConfig.count; i++) {
                 this.renderPasses.denoiser.addUniform(`iChannel${i}`, (gl, loc) => {
                     gl.activeTexture(gl.TEXTURE0 + i);
-                    if ("textures" in this.textureConfig) {
+                    if (this.textureConfig && "textures" in this.textureConfig) {
                         gl.bindTexture(gl.TEXTURE_2D, textures[i]);
                     }
                     gl.uniform1i(loc, i);
@@ -80,12 +78,12 @@ export default class MISRenderer extends BaseRenderer {
 
     private setupTemporalAAPass(pathTracer: PathTracer): void {
         const numIndices = this.setupRayRenderPass(this.renderPasses.temporalAA, pathTracer);
-        if ("textures" in this.textureConfig) {
+        if (this.textureConfig && "textures" in this.textureConfig) {
             let textures = [this.textureConfig.textures[4], this.textureConfig.textures[this.taa_c_read_idx]];
             for (let i = 0; !(this.textureConfig) || i < this.textureConfig.count; i++) {
                 this.renderPasses.temporalAA.addUniform(`iChannel${i}`, (gl, loc) => {
                     gl.activeTexture(gl.TEXTURE0 + i);
-                    if ("textures" in this.textureConfig) {
+                    if (this.textureConfig && "textures" in this.textureConfig) {
                         gl.bindTexture(gl.TEXTURE_2D, textures[i]);
                     }
                     gl.uniform1i(loc, i);
@@ -101,7 +99,7 @@ export default class MISRenderer extends BaseRenderer {
             const gl = this.gl as WebGL2RenderingContext;
             const taa_c_write_idx = this.taa_c_read_idx === 2 ? 3 : 2;
             gl.bindFramebuffer(gl.FRAMEBUFFER, this.pt_frameBuffer);
-            if ("textures" in this.textureConfig) {
+            if (this.textureConfig && "textures" in this.textureConfig) {
                 gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.textureConfig.textures[0], 0);
                 gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, this.textureConfig.textures[1], 0);
             }

@@ -27,20 +27,20 @@ export class GUI implements IGUI {
   private static readonly rollSpeed: number = 0.1;
   private static readonly panSpeed: number = 0.1;
 
-  private camera: Camera;
-  private prevX: number;
-  private prevY: number;
-  private dragging: boolean;
+  private camera!: Camera;
+  private prevX!: number;
+  private prevY!: number;
+  private dragging!: boolean;
 
-  private height: number;
-  private width: number;
+  private height!: number;
+  private width!: number;
 
-  private animation: PathTracer;
+  private animation!: PathTracer;
 
-  private Adown: boolean;
-  private Wdown: boolean;
-  private Sdown: boolean;
-  private Ddown: boolean;
+  private Adown!: boolean;
+  private Wdown!: boolean;
+  private Sdown!: boolean;
+  private Ddown!: boolean;
 
   /**
    *
