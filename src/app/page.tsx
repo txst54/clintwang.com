@@ -32,7 +32,7 @@ export default function Home() {
               playsInline
             >
               <source
-                src="http://localhost:3000/assets/bezier_grid_interpolation.webm"
+                src="/assets/bezier_grid_interpolation.webm"
                 type="video/webm"
               />
             </video>
