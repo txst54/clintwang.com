@@ -9,6 +9,7 @@ import 'katex/dist/katex.min.css';
 import Image from 'next/image';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
+import { Metadata } from 'next';
 
 export async function generateStaticParams() {
   const entriesPath = path.join(process.cwd(), 'public', 'entries');
@@ -22,6 +23,31 @@ interface PostPageProps {
   params: Promise<{
     slug: string;
   }>;
+}
+
+export async function generateMetadata({ params }: PostPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const mdPath = path.join(process.cwd(), 'public', 'entries', slug, 'main.md');
+  const rawContent = fs.readFileSync(mdPath, 'utf8');
+  const { data, content } = matter(rawContent);
+
+  return {
+    title: data.title,
+    description: data.description || content.slice(0, 160),
+    openGraph: {
+      title: data.title,
+      description: data.description || content.slice(0, 160),
+      type: 'article',
+      url: `https://clintwang.com/posts/${slug}`,
+      images: data.cover ? [`/entries/${slug}/${data.cover}`] : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: data.title,
+      description: data.description || content.slice(0, 160),
+      images: data.cover ? [`/entries/${slug}/${data.cover}`] : [],
+    },
+  };
 }
 
 export default async function PostPage({ params }: PostPageProps) {
