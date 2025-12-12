@@ -30,7 +30,6 @@ export default function Home() {
               loop
               muted
               playsInline
-              name="media"
             >
               <source
                 src="http://localhost:3000/assets/bezier_grid_interpolation.webm"

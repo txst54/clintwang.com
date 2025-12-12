@@ -1,4 +1,4 @@
-// src/app/posts/[slug]/page.js
+// src/app/posts/[slug]/page.tsx
 import fs from 'fs';
 import path from 'path';
 import ReactMarkdown from 'react-markdown';
@@ -18,7 +18,14 @@ export async function generateStaticParams() {
   return folders;
 }
 
-export default async function PostPage({ params }) {
+interface PostPageProps {
+  params: Promise<{
+    slug: string;
+  }>;
+}
+
+export default async function PostPage({ params }: PostPageProps) {
+  // Await params in Next.js 15+
   const { slug } = await params;
 
   // Load Markdown file
