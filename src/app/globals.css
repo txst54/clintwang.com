@@ -21,3 +21,17 @@ body {
 .prose ul p {
   @apply indent-0; /* remove indent for paragraphs inside lists */
 }
+
+.katex-display {
+  text-align: center;
+  font-size: 1.0em;
+  padding-top: 0.2rem;
+  padding-bottom: 0.5rem;
+  margin-top: 0.8rem;
+  margin-bottom: 0.8rem;
+  overflow-x: auto;
+}
+
+.katex-display > .katex {
+  display: inline-block;
+}
