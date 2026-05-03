@@ -84,7 +84,7 @@ export default async function PostPage({ params }: PostPageProps) {
     <article className="mx-auto my-12 max-w-4xl px-4">
       {/* Post Metadata */}
       <header className="mb-8">
-        <h1 className="text-5xl font-serif ">{data.title}</h1>
+        <h1 className="text-3xl sm:text-5xl font-serif ">{data.title}</h1>
         <p className="text-gray-500 mt-2">
           {data.author} · {new Date(data.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
         </p>
@@ -114,9 +114,10 @@ export default async function PostPage({ params }: PostPageProps) {
                 />
               </span>
             ),
-            h1: ({ node, ...props }) => <h1 className="text-4xl font-serif my-4" {...props} />,
-            h2: ({ node, ...props }) => <h2 className="text-2xl font-serif my-3" {...props} />,
-            h3: ({ node, ...props }) => <h3 className="text-xl font-serif my-2" {...props} />,
+            h1: ({ node, ...props }) => <h1 className="text-2xl sm:text-4xl font-serif my-4" {...props} />,
+            h2: ({ node, ...props }) => <h2 className="text-xl sm:text-2xl font-serif my-3" {...props} />,
+            h3: ({ node, ...props }) => <h3 className="text-lg sm:text-xl font-serif my-2" {...props} />,
+            p: ({ node, ...props }) => <p className="mb-4 leading-relaxed" {...props} />,
             a: ({ node, ...props }) => <a className="text-blue-500 hover:text-blue-400 underline" {...props} />,
             // Ordered lists
             ol: ({ node, ...props }) => (

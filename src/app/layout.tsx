@@ -29,7 +29,7 @@ export default function RootLayout({
     <html lang="en">
     <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white`}>
     <header className="absolute top-0 left-0 w-full py-4 pt-8 z-10 px-4 sm:px-8 lg:px-32">
-      <nav className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0">
+      <nav className="flex sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0">
         <NavLink href="/" text="Home" />
         <NavLink href="/posts" text="Posts" right />
         <NavLink href="/about" text="About" right />
