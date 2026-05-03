@@ -10,9 +10,11 @@ title: Implementing High-Resolution Cloth and Origami Simulations on GPU using X
 
 # Introduction and Theory
 
-I built a real-time physical simulation framework for rigid and
+I recently took a graduate course on physical simulations, taught by the incredibly talented [Etienne Vouga](https://www.cs.utexas.edu/~evouga/). I wanted to apply what I learned, so I built a real-time physical simulation framework for rigid and
 cloth objects using extended position-based dynamics 
-\[[XPBD, Macklin et al.](https://mmacklin.com/xpbd.pdf)\]. To evaluate the strengths and
+\[[XPBD, Macklin et al.](https://mmacklin.com/xpbd.pdf)\]. 
+
+To evaluate the strengths and
 limitations of XPBD, I extended a baseline shape-matching PBD cloth
 simulation with self-collision handling, friction constraints, and
 collisions against rigid bodies. After discovering the limitations of
@@ -20,14 +22,30 @@ shape-matching and triangular meshes, I implemented a particle cloth
 that uses distance constraints. I then created a real-time origami
 simulation by adding stiff hinge constraints to the cloth model.
 
+The framework is written in Rust that is compiled to
+WebAssembly (Wasm), and rendered using WebGPU. It can be run
+directly in the browser or as a headless binary for advanced debugging. A lightweight browser interface exposes key simulation parameters for interactive tuning. The source code is available on GitHub at https://github.com/txst54/wasm-cloth-sim, and a live browser demo is hosted at https://cloth.clintwang.com
+.
+
 ## Position-based Dynamics
 
 The baseline cloth simulation uses position-based dynamics (PBD), which
-can be thought of as a Verlet-like position prediction step, followed by
-an implicit-style constraint projection. In most implementations, the solver computes a target position, then interpolates between the Verlet predicted position and target position. More formally, we can say that given a constraint scoring function $C(x)$, the constraint solver computes
+can be thought of as a [Verlet-like](https://en.wikipedia.org/wiki/Verlet_integration) position prediction step, followed by
+an [implicit-style](https://en.wikipedia.org/wiki/Explicit_and_implicit_methods) constraint projection. In most implementations, the solver computes a target position, then interpolates between the Verlet predicted position and target position. Let $k_j$ be a stiffness parameter for constraint $j$. The position update is as follows:
+$$
+\textbf{x}_i \gets \textbf{x}_{i-1} + \textbf{v}\Delta t
+$$
+$$
+\hat{\textbf{x}}_i \gets (1-k_j)\textbf{x}_i + k_j\textbf{x}_{\text{target}}
+$$
+
+More formally, we can say that given a constraint scoring function $C(x)$, the constraint solver computes
 a per-constraint position delta:
 $$
 \Delta x = k_js_j\textbf{M}^{-1}\nabla C_j(\textbf{x}_i)
+$$
+$$
+\hat{\textbf{x}}_i \gets \textbf{x}_i + \Delta x
 $$
 The subscript $i$ denotes the iteration index, $j$ denotes the constraint
 index, $k_j \in [0, 1]$ is the constraint stiffness, and the scaling factor $s_j$ is derived:
@@ -35,13 +53,22 @@ $$
 s_j = \frac{-C_j(\textbf{x}_i)}{\nabla C_j\textbf{M}^{-1}\nabla C_j^T}
 $$
 Therefore, the issue with PBD is that stiffness depends on the number of constraint
-projections performed. In a cloth simulation, the cloth typically has stretching and bending constraints. We refer to the rest position of a cloth as the initial position a cloth started in. 
+projections performed. 
+
+In a cloth simulation, the cloth typically has stretching and bending constraints. We refer to the rest position of a cloth as the initial position a cloth started in. 
 
 
 1. The **stretching constraint** defines how individual edges in the cloth interact with respect to the rest position. 
-2. The **bending constraint** defines how multiple edges in the cloth interact with respect to the rest position. 
+2. The **bending constraint** defines how multiple edges in the cloth interact with respect to the rest position.
 
-For the PBD cloth simulation stretching and bending constraints, I use shape matching \[[Meshless Deformations, Muller et al.](https://matthias-research.github.io/pages/publications/MeshlessDeformations_SIG05.pdf)\]. Each triangle in the cloth is constrained to match the corresponding triangle in the rest position via a rotation and a translation. Solving shape-matching is equivalent to solving the [orthogonal Procrustes problem](https://en.wikipedia.org/wiki/Orthogonal_Procrustes_problem), which states that given matrices $A$ and $B$, how can we map $A$ to $B$ using an orthogonal matrix. 
+<figure id="fig:tc" data-latex-placement="H">
+<img src="triangle-cloth.png" style="width:40.0%" />
+<figcaption><span id="fig:tc" data-label="fig:tc"></span> Triangle mesh
+cloth simulation: PBD shape-matching cloth at resolution=64. 
+</figcaption>
+</figure>
+
+For the PBD cloth simulation stretching and bending constraints, I use shape matching \[[Meshless Deformations, Muller et al.](https://matthias-research.github.io/pages/publications/MeshlessDeformations_SIG05.pdf)\]. Each triangle in the cloth is constrained to match the corresponding triangle in the rest position via a rotation and a translation. Solving shape-matching is equivalent to solving the [orthogonal Procrustes problem](https://en.wikipedia.org/wiki/Orthogonal_Procrustes_problem), which states that given matrices $A$ and $B$, how can we map $A$ to $B$ using an orthogonal matrix.
 
 The solver computes a target motion directly, which makes it non-trivial to express the constraint as a scoring function C(x). Rather than deriving motion from the gradient of a constraint energy, the method produces the target configuration explicitly. This distinction does not affect the PBD implementation, but becomes problematic in the XPBD formulation, which relies on an explicit constraint function. Additionally, solving the orthogonal Procrustes problem requires an SVD, which is computationally expensive.
 
@@ -49,12 +76,12 @@ The solver computes a target motion directly, which makes it non-trivial to expr
 
 Earlier I mentioned that when using PBD, stiffness depends on the number of iterations. XPBD solves this by introducing compliance
 $\alpha$ (block diagonal compliance matrix corresponding to
-inverse-stiffness) and a Lagrange multiplier per constraint:
+inverse-stiffness) and a [Lagrange multiplier](https://en.wikipedia.org/wiki/Lagrange_multiplier) per constraint:
 $$
 \Delta \textbf{x} = \textbf{M}^{-1}\nabla \textbf{C}(\textbf{x}_i)^T \Delta \lambda
 $$
 XPBD solves $\Delta \lambda$ by approximating each constraint as a local
-linear system and performing a Gauss-Seidel update:
+linear system and performing a [Gauss-Seidel](https://en.wikipedia.org/wiki/Gauss%E2%80%93Seidel_method) update:
 $$
 \Delta \lambda = \frac{-C_j(\textbf{x}_i)-\tilde\alpha_j\lambda_{ij}}{\nabla C_j \textbf{M}^{-1}\nabla C_j^T + \tilde\alpha_j}
 $$
@@ -63,7 +90,7 @@ $\tilde\alpha = \frac{\alpha}{\Delta t^2}$.
 
 ### Deriving XPBD
 
-Macklin et al. provide a beautiful derivation of XPBD from Newton's equations of motion, specifically the 2nd law of motion:
+Macklin et al. provide a beautiful derivation of XPBD from [Newton's equations of motion](https://en.wikipedia.org/wiki/Newton%27s_laws_of_motion), specifically the 2nd law of motion:
 $$
 F = ma
 $$
@@ -88,7 +115,7 @@ $$
 -\nabla U^T(x^{n+1}) = M\left(\frac{x^{n+1} - 2x^n + x^{n-1}}{\Delta t^2}\right)
 $$
 
-Recall from high school physics that elastic potential energy is represented by $U = \frac{1}{2}kx^2$ where $k$ is stiffness. Because the constraints $C(x)$ represent displacement from natural position, we can reformulate $U$ as follows:
+Recall from high school physics that [elastic potential energy](https://en.wikipedia.org/wiki/Elastic_energy) is represented by $U = \frac{1}{2}kx^2$ where $k$ is stiffness. Because the constraints $C(x)$ represent displacement from natural position, we can reformulate $U$ as follows:
 $$
 U(x) = \frac{1}{2} C(x)^T \alpha^{-1} C(x)
 $$
@@ -214,6 +241,7 @@ $$
 By implementing a Gauss-Seidel solution for the systems of linear equations, we can calculate $\Delta \lambda_j$ for a single constraint, then update positions. 
 
 ### XPBD Implementation for Cloth
+
 Because shape-matching does
 not easily provide a scalar $C$, I chose to keep shape-matching in PBD
 while creating a new distance constraint option in XPBD:
@@ -222,6 +250,20 @@ C(\textbf{x}) = |\textbf{x}_i - \textbf{x}_j| - L_0
 $$
 Users can toggle
 between the two.
+
+:::twocol
+![image](particle-cloth-lo-stp.png)
+
+![image](particle-cloth-hi-stp.png)
+
+Particle cloth simulation (XPBD distance constraint): High-resolution cloth at 30 FPS, resolution=150, substeps = 1
+
+Particle cloth simulation (XPBD distance constraint): High-resolution cloth at 20 FPS, resolution=150, substeps = 10
+
+:::
+
+From the above figures, we see that using more substeps shows less stretching and higher
+material stiffness.
 
 ## Self-Collision and Rigid Bodies
 
@@ -280,7 +322,7 @@ $$
 \text{repeat }\textbf{x}_i \gets \textbf{x}_i + \Delta \textbf{x}
 $$
 Each update influences neighboring constraints. An alternative is a
-Jacobi solve that performs the following:
+[Jacobi solve](https://en.wikipedia.org/wiki/Jacobi_method) that performs the following:
 $$
 \textbf{d}_i \gets 0
 $$
@@ -292,7 +334,7 @@ $$
 $$
 The Jacobi solve updates the initial position produced by Verlet integration. Consequently, the solve takes longer to converge, overshoots, and
 violates momentum conservation. Therefore, I adopted a hybrid approach.
-I used greedy graph coloring to iteratively select and concurrently
+I used greedy [graph coloring](https://en.wikipedia.org/wiki/Graph_coloring) to iteratively select and concurrently
 process a subset of independent distance constraints using Gauss-Seidel.
 Because graph-coloring would yield a large number of colors (small sets)
 for collision constraints, I handle collision constraints using a
@@ -302,7 +344,7 @@ parallel Jacobi solve.
 
 The goal of the origami simulation is to map a mesh of creases on an
 unfolded sheet of paper to the folded version. Typically, the crease
-mesh is called a crease pattern and will contain 3 types of edges:
+mesh is called a [crease pattern](https://en.wikipedia.org/wiki/Crease_pattern) and will contain 3 types of edges:
 
 1.  Boundary edges represent the edge of the paper and typically form a
     square.
@@ -315,10 +357,10 @@ I base our implementation on the numerical integrator developed by
 Ghassei et al. \[[Origami Simulator, Ghassei et al.](https://erikdemaine.org/papers/OrigamiSimulator_Origami7/paper.pdf)\]. Ghassei et al. model a
 force
 $\textbf{F}_{crease}=-k_{crease}(\theta - \theta_{target})\frac{\partial\theta}{\partial \textbf{p}}$
-based on a dihedral crease constraint, which naturally maps to an XPBD
+based on a [dihedral](https://en.wikipedia.org/wiki/Dihedral_angle) crease constraint, which naturally maps to an XPBD
 constraint. I evaluate the constraint on hinge diamonds, which are
 diamonds that overlay creases. In origami, the dihedral angle is more
-usefully defined as the angle betIen the two plane normals, rather than
+usefully defined as the angle between the two plane normals, rather than
 betIen the planes themselves. A flat unfolded hinge diamond will have a
 dihedral angle of 0 according to our convention. To simulate fold
 progress, I set
@@ -354,15 +396,27 @@ $$
 \frac{\partial \theta}{\partial \textbf{x}_4} = \frac{-\cot\alpha_{3, 14}}{\cot \alpha_{4,31}+\cot \alpha_{3,14}}\frac{\textbf{n}_1}{h_1} + \frac{-\cot\alpha_{3, 42}}{\cot \alpha_{4,23}+\cot \alpha_{3,42}}\frac{\textbf{n}_2}{h_2}
 $$
 
-# Implementation Details
+### Origami in PBD versus XPBD
+:::twocol
 
-I created a fabric simulation harness in Rust that is compiled to
-Web-Assembly (Wasm), and rendered using WebGPU. The harness can be run
-in-browser or as a headless binary for advanced debugging. I set up a
-simple user interface in the browser to adjust the parameters. The
-github repository can be found at
-https://github.com/txst54/wasm-cloth-sim. A browser-ready version is up
-at my website: https://cloth.clintwang.com.
+![](triangle-paper-waterbomb.png)
+
+![](particle-paper-waterbomb.png)
+
+Triangle mesh paper simulation (XPBD shape-matching dihedral angle constraint): Waterbomb tessellation at resolution=1.
+
+Particle paper simulation (XPBD distance + dihedral angle constraint): Waterbomb base in a high resolution paper, resolution = 64.
+
+:::
+
+One limitation of the particle XPBD paper simulation is that in high
+resolutions, the distance constraints become slightly unstable. Notice
+the small bumps in the paper in Figure [4](#fig:pp). When I ran simulations in the triangle mesh PBD
+shape-matching paper simulation, the paper was smooth. This is because
+shape-matching provides high-fidelity projections onto the rest shapes.
+
+
+# Implementation Details
 
 ## Architecture
 
@@ -413,48 +467,6 @@ prove sufficient. Damping and timestep are examples of this.
 | `waterbomb.cp` | A traditional origami base |
 | `miura_ori.cp` | A classic and easy to fold origami tessellation |
 | `waterbomb_tess.cp` | A classic and harder to fold origami tessellation |
-| `yaccho.cp` | Modern origami "color-change" model. Designed and provided by Kei Morisue. |
 | `hex_torso.cp` | Modern origami "hex-pleat" model. Designed by Clint. |
 
 Table: Available crease patterns for paper simulation
-
-Once you have build the necessary packages, you can run the web UI using
-`npm install && npm run dev`. Attached below are reference outputs you
-can compare to:
-
-<figure id="fig:tc" data-latex-placement="H">
-<img src="triangle-cloth.png" style="width:40.0%" />
-<figcaption><span id="fig:tc" data-label="fig:tc"></span> Triangle mesh
-cloth simulation: PBD shape-matching cloth at resolution=64.
-</figcaption>
-</figure>
-
-<figure id="fig:tp" data-latex-placement="H">
-<img src="triangle-paper-waterbomb.png" style="width:40.0%" />
-<figcaption><span id="fig:tp" data-label="fig:tp"></span> Triangle mesh
-paper simulation (XPBD shape-matching dihedral angle constraint):
-Waterbomb tessallation at resolution=1. </figcaption>
-</figure>
-
-
-![image](particle-cloth-lo-stp.png)
-Particle cloth simulation (XPBD distance constraint): High-resolution cloth at 30 FPS, resolution=150, substeps = 1
-
-![image](particle-cloth-hi-stp.png)
-Particle cloth simulation (XPBD distance constraint): High-resolution cloth at 20 FPS, resolution=150, substeps = 10
-
-From the above figures, we see that using more substeps shows less stretching and higher
-material stiffness.
-
-<figure id="fig:pp" data-latex-placement="H">
-<img src="particle-paper-waterbomb.png" style="width:50.0%" />
-<figcaption><span id="fig:pp" data-label="fig:pp"></span> Particle paper
-simulation (XPBD distance + dihedral angle constraint): Waterbomb base
-in a high resolution paper, resolution = 64. </figcaption>
-</figure>
-
-One limitation of the particle XPBD paper simulation is that in high
-resolutions, the distance constraints become slightly unstable. Notice
-the small bumps in the paper in Figure [4](#fig:pp). When I ran simulations in the triangle mesh PBD
-shape-matching paper simulation, the paper was smooth. This is because
-shape-matching provides high-fidelity projections onto the rest shapes.

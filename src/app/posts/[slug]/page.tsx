@@ -10,6 +10,9 @@ import Image from 'next/image';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import { Metadata } from 'next';
+import remarkDirective from 'remark-directive';
+import { visit } from 'unist-util-visit';
+import React from "react";
 
 export async function generateStaticParams() {
   const entriesPath = path.join(process.cwd(), 'public', 'entries');
@@ -50,6 +53,22 @@ export async function generateMetadata({ params }: PostPageProps): Promise<Metad
   };
 }
 
+function remarkTwoCol() {
+  return (tree: any) => {
+    visit(tree, (node: any) => {
+      if (
+        node.type === 'containerDirective' &&
+        node.name === 'twocol'
+      ) {
+        node.data = {
+          hName: 'twocol',
+          hProperties: {},
+        };
+      }
+    });
+  };
+}
+
 export default async function PostPage({ params }: PostPageProps) {
   // Await params in Next.js 15+
   const { slug } = await params;
@@ -74,7 +93,12 @@ export default async function PostPage({ params }: PostPageProps) {
       {/* Markdown Content */}
       <div className="prose prose-lg prose-headings:font-serif prose-a:text-blue-500 prose-a:hover:text-blue-400 mx-auto break-words hyphens-auto">
         <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkMath]}
+          remarkPlugins={[
+            remarkGfm,
+            remarkMath,
+            remarkDirective,
+            remarkTwoCol
+          ]}
           rehypePlugins={[rehypeKatex, rehypeRaw]}
           components={{
             img: ({ node, ...props }) => (
@@ -105,6 +129,17 @@ export default async function PostPage({ params }: PostPageProps) {
             li: ({ node, ...props }) => (
               <li className="mb-2 indent-0" {...props} />
             ),
+            twocol: ({ children }) => {
+              const items = React.Children.toArray(children);
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 my-8">
+                  {items.map((child, i) => (
+                    <div key={i}>{child}</div>
+                  ))}
+                </div>
+              );
+            },
           }}
         >
           {content}
